@@ -1,9 +1,9 @@
-.venv/
-__pycache__/
-*.pyc
-
+bool2cmos/frontend/node_modules/
 node_modules/
 dist/
 build/
+*.log
+__pycache__/
+*.pyc
+.env
 .DS_Store
-
