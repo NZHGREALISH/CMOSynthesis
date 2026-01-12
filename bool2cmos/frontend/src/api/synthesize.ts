@@ -39,18 +39,19 @@ export interface SynthesisResponse {
   };
 }
 
-function mapApiNetwork(node: ApiNetwork): NetworkNode {
+function mapApiNetwork(node: ApiNetwork, notOp: string): NetworkNode {
   if (node.type === 'transistor') {
-    const name = node.gateInverted ? `~${node.gate}` : node.gate;
+    const name = node.gateInverted ? `${notOp}${node.gate}` : node.gate;
     return { type: 'transistor', name, deviceType: node.kind };
   }
-  return { type: node.kind, children: node.children.map(mapApiNetwork) };
+  return { type: node.kind, children: node.children.map((c) => mapApiNetwork(c, notOp)) };
 }
 
 export function toCMOSNetwork(resp: SynthesisResponse): CMOSNetwork {
+  const notOp = resp.input.style?.not ?? '~';
   return {
-    pun: mapApiNetwork(resp.steps.pun.network),
-    pdn: mapApiNetwork(resp.steps.pdn.network),
+    pun: mapApiNetwork(resp.steps.pun.network, notOp),
+    pdn: mapApiNetwork(resp.steps.pdn.network, notOp),
   };
 }
 

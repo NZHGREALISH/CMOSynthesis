@@ -161,13 +161,23 @@ def _tokenize(text: str) -> List[Token]:
 
 
 def _detect_style(text: str) -> RenderStyle:
-    not_op = "~" if "~" in text else "!"
-    or_op = "+" if "+" in text else "|"
+    # Prefer whichever operator the user typed, and keep output consistent across steps.
+    not_op = "!" if "!" in text else ("~" if "~" in text else "!")
+    if "+" in text and "|" not in text:
+        or_op = "+"
+    elif "|" in text and "+" not in text:
+        or_op = "|"
+    else:
+        or_op = "+" if "+" in text else "|"
+
     explicit_and = ("&" in text) or ("*" in text)
     implicit_and = False
     if not explicit_and:
         toks = _tokenize(text)
-        implicit_and = any(kind == "AND" and lex == "" for kind, lex in toks)
+        # If the user is using shorthand OR (+) or wrote any implicit AND (AB, A(B), A!B, ...),
+        # then prefer implicit AND rendering for all steps.
+        implicit_and = ("+" in text) or any(kind == "AND" and lex == "" for kind, lex in toks)
+
     return RenderStyle(not_op=not_op, and_op="&", or_op=or_op, implicit_and=implicit_and)
 
 
@@ -714,6 +724,13 @@ def _try_build_router():
 
     @router.post("/debug/nnf")
     def debug_nnf_route(payload: SynthesizeRequest) -> Dict[str, Any]:
+        try:
+            return inspect_complement_nnf(payload.expr)
+        except SynthesisError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @router.post("/debug/complement-nnf")
+    def debug_complement_nnf_route(payload: SynthesizeRequest) -> Dict[str, Any]:
         try:
             return inspect_complement_nnf(payload.expr)
         except SynthesisError as e:

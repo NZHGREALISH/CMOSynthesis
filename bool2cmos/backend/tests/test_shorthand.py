@@ -13,6 +13,8 @@ class TestShorthand(unittest.TestCase):
         out = synthesize("A+B")
         self.assertEqual(out["steps"]["parse"]["expr"], "A+B")
         self.assertEqual(out["steps"]["simplify"]["expr"], "A+B")
+        # User typed shorthand OR (+) and no explicit AND, so ANDs should render implicitly.
+        self.assertEqual(out["steps"]["nnfComplement"]["expr"], "!A!B")
 
     def test_explicit_ops_roundtrip(self):
         out = synthesize("A&(B|!C)")
@@ -27,4 +29,3 @@ class TestShorthand(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -45,6 +45,13 @@ def create_app() -> FastAPI:
         except SynthesisError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
+    @app.post("/debug/complement-nnf")
+    def debug_complement_nnf_route(payload: SynthesizeRequest) -> Dict[str, Any]:
+        try:
+            return inspect_complement_nnf(payload.expr)
+        except SynthesisError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
     return app
 
 
