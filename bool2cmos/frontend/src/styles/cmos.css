@@ -16,6 +16,50 @@ body {
   padding: 0 16px 40px;
 }
 
+.header {
+  margin-bottom: 14px;
+}
+
+.subtle {
+  margin: 0;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px 12px 14px;
+  margin-top: 14px;
+}
+
+.card h2 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: #374151;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th {
+  text-align: left;
+  width: 160px;
+  color: #374151;
+  font-weight: 600;
+  padding: 6px 0;
+  vertical-align: top;
+}
+
+.table td {
+  padding: 6px 0;
+}
+
 h1 {
   margin: 0 0 16px;
   font-size: 22px;
