@@ -6,6 +6,14 @@ from dataclasses import dataclass
 class Node:
     pass
 
+Expr = Node
+
+@dataclass(frozen=True, slots=True)
+class Const(Node):
+    value: int # 0 or 1
+
+    def __repr__(self) -> str:
+        return str(self.value)
 
 @dataclass(frozen=True, slots=True)
 class Var(Node):
