@@ -1,29 +1,34 @@
 import { CMOSNetwork, NetworkNode } from '../types/network';
 
-type BackendNetwork =
+export type ApiNetwork =
   | {
       type: 'transistor';
       kind: 'nmos' | 'pmos';
       gate: string;
-      gateInverted: boolean;
-      onWhen: 0 | 1;
+      gateInverted?: boolean;
+      onWhen?: number;
     }
   | {
       type: 'node';
       kind: 'series' | 'parallel';
-      children: BackendNetwork[];
+      children: ApiNetwork[];
     };
 
-export interface SynthesisResult {
-  input: { expression: string };
+export interface SynthesisResponse {
+  input: {
+    expression: string;
+    style?: { not: string; and: string; or: string };
+  };
   steps: {
     parse: { expr: string };
     simplify: { expr: string };
     complement: { expr: string };
     nnf: { expr: string };
+    nnfComplement?: { expr: string };
     factor: { expr: string };
-    pdn: { network: BackendNetwork };
-    pun: { network: BackendNetwork };
+    factorComplement?: { expr: string };
+    pdn: { network: ApiNetwork };
+    pun: { network: ApiNetwork };
     count: {
       pdnTransistors: number;
       punTransistors: number;
@@ -31,48 +36,41 @@ export interface SynthesisResult {
       totalTransistors: number;
       invertedInputs: string[];
     };
-    export: { format: 'json' };
   };
 }
 
-function mapNetwork(node: BackendNetwork): NetworkNode {
+function mapApiNetwork(node: ApiNetwork): NetworkNode {
   if (node.type === 'transistor') {
-    return {
-      type: 'transistor',
-      name: node.gateInverted ? `!${node.gate}` : node.gate,
-      deviceType: node.kind,
-    };
+    const name = node.gateInverted ? `~${node.gate}` : node.gate;
+    return { type: 'transistor', name, deviceType: node.kind };
   }
+  return { type: node.kind, children: node.children.map(mapApiNetwork) };
+}
 
+export function toCMOSNetwork(resp: SynthesisResponse): CMOSNetwork {
   return {
-    type: node.kind,
-    children: node.children.map(mapNetwork),
+    pun: mapApiNetwork(resp.steps.pun.network),
+    pdn: mapApiNetwork(resp.steps.pdn.network),
   };
 }
 
-export async function synthesize(expr: string): Promise<{ raw: SynthesisResult; network: CMOSNetwork }> {
-  const resp = await fetch('/synthesize', {
+export async function synthesize(expr: string): Promise<SynthesisResponse> {
+  const res = await fetch('/synthesize', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ expr }),
   });
 
-  const payload = (await resp.json()) as unknown;
-
-  if (!resp.ok) {
-    const message =
-      typeof payload === 'object' && payload !== null && 'detail' in payload
-        ? String((payload as { detail?: unknown }).detail)
-        : `Request failed (${resp.status})`;
-    throw new Error(message);
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const data = (await res.json()) as { detail?: string };
+      if (data?.detail) detail = data.detail;
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(detail);
   }
 
-  const raw = payload as SynthesisResult;
-  return {
-    raw,
-    network: {
-      pdn: mapNetwork(raw.steps.pdn.network),
-      pun: mapNetwork(raw.steps.pun.network),
-    },
-  };
+  return (await res.json()) as SynthesisResponse;
 }

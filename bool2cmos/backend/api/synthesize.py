@@ -38,8 +38,17 @@ class Or:
 
 Expr = Union[Var, Const, Not, And, Or]
 
+@dataclass(frozen=True, slots=True)
+class RenderStyle:
+    not_op: str = "!"
+    and_op: str = "&"
+    or_op: str = "|"
+    implicit_and: bool = False
 
-def expr_to_str(expr: Expr) -> str:
+
+def expr_to_str(expr: Expr, style: Optional[RenderStyle] = None) -> str:
+    style = style or RenderStyle()
+
     def prec(e: Expr) -> int:
         if isinstance(e, (Var, Const)):
             return 4
@@ -59,11 +68,15 @@ def expr_to_str(expr: Expr) -> str:
             s = "1" if e.value else "0"
         elif isinstance(e, Not):
             child = render(e.child, p)
-            s = f"!{child}"
+            s = f"{style.not_op}{child}"
         elif isinstance(e, And):
-            s = " & ".join(render(c, p) for c in e.children)
+            parts = [render(c, p) for c in e.children]
+            if style.implicit_and:
+                s = "".join(parts)
+            else:
+                s = style.and_op.join(parts)
         elif isinstance(e, Or):
-            s = " | ".join(render(c, p) for c in e.children)
+            s = style.or_op.join(render(c, p) for c in e.children)
         else:
             raise AssertionError(f"Unknown Expr: {type(e)}")
 
@@ -118,13 +131,44 @@ def _tokenize(text: str) -> List[Token]:
             upper = ident.upper()
             if upper in ("AND", "OR", "NOT"):
                 tokens.append((upper, ident))
+            elif ident.isalpha() and len(upper) > 1:
+                # Shorthand support: "AB" => "A AND B"
+                for c in upper:
+                    tokens.append(("IDENT", c))
             else:
-                tokens.append(("IDENT", ident))
+                tokens.append(("IDENT", upper))
             i = j
             continue
         raise SynthesisError(f"Unexpected character: {ch!r}")
-    tokens.append(("EOF", ""))
-    return tokens
+
+    # Insert implicit ANDs: A(B+C), AB, A!B, )A, 1A, etc.
+    def can_end_expr(kind: str) -> bool:
+        return kind in ("IDENT", "CONST", ")")
+
+    def can_start_expr(kind: str) -> bool:
+        return kind in ("IDENT", "CONST", "(", "NOT")
+
+    with_implicit: List[Token] = []
+    for tok in tokens:
+        if with_implicit:
+            prev_kind, _ = with_implicit[-1]
+            if can_end_expr(prev_kind) and can_start_expr(tok[0]):
+                with_implicit.append(("AND", ""))  # inserted
+        with_implicit.append(tok)
+
+    with_implicit.append(("EOF", ""))
+    return with_implicit
+
+
+def _detect_style(text: str) -> RenderStyle:
+    not_op = "~" if "~" in text else "!"
+    or_op = "+" if "+" in text else "|"
+    explicit_and = ("&" in text) or ("*" in text)
+    implicit_and = False
+    if not explicit_and:
+        toks = _tokenize(text)
+        implicit_and = any(kind == "AND" and lex == "" for kind, lex in toks)
+    return RenderStyle(not_op=not_op, and_op="&", or_op=or_op, implicit_and=implicit_and)
 
 
 class _Parser:
@@ -486,6 +530,7 @@ def synthesize(expression: str) -> Dict[str, Any]:
     if not isinstance(expression, str) or not expression.strip():
         raise SynthesisError("Expression must be a non-empty string.")
 
+    style = _detect_style(expression)
     parsed = parse_expr(expression)
     simplified = simplify(parsed)
     comp = complement(simplified)
@@ -503,13 +548,22 @@ def synthesize(expression: str) -> Dict[str, Any]:
     inverter_count = 2 * len(inverted_gates)  # CMOS inverter = 2 transistors
 
     return {
-        "input": {"expression": expression},
+        "input": {
+            "expression": expression,
+            "style": {
+                "not": style.not_op,
+                "and": "" if style.implicit_and else style.and_op,
+                "or": style.or_op,
+            },
+        },
         "steps": {
-            "parse": {"expr": expr_to_str(parsed)},
-            "simplify": {"expr": expr_to_str(simplified)},
-            "complement": {"expr": expr_to_str(comp)},
-            "nnf": {"expr": expr_to_str(nnf_expr)},
-            "factor": {"expr": expr_to_str(factored)},
+            "parse": {"expr": expr_to_str(parsed, style)},
+            "simplify": {"expr": expr_to_str(simplified, style)},
+            "complement": {"expr": expr_to_str(comp, style)},
+            "nnf": {"expr": expr_to_str(nnf_expr, style)},
+            "nnfComplement": {"expr": expr_to_str(nnf_comp, style)},
+            "factor": {"expr": expr_to_str(factored, style)},
+            "factorComplement": {"expr": expr_to_str(factored_comp, style)},
             "pdn": {"network": export_network_json(pdn)},
             "pun": {"network": export_network_json(pun)},
             "count": {
@@ -522,6 +576,118 @@ def synthesize(expression: str) -> Dict[str, Any]:
             "export": {"format": "json"},
         },
     }
+
+
+def inspect_complement_nnf(expression: str) -> Dict[str, Any]:
+    if not isinstance(expression, str) or not expression.strip():
+        raise SynthesisError("Expression must be a non-empty string.")
+
+    style = _detect_style(expression)
+    parsed = parse_expr(expression)
+    simplified = simplify(parsed)
+    comp = complement(simplified)
+    nnf_expr = nnf(simplified)
+    nnf_comp = nnf(comp)
+
+    vars_: List[str] = sorted({name for name in _collect_vars(parsed)})
+    max_full_vars = 8
+    full = len(vars_) <= max_full_vars
+
+    if full:
+        rows = []
+        for mask in range(1 << len(vars_)):
+            env = {vars_[i]: bool((mask >> i) & 1) for i in range(len(vars_))}
+            f = _eval(parsed, env)
+            nnf_f = _eval(nnf_expr, env)
+            nnf_fc = _eval(nnf_comp, env)
+            rows.append(
+                {
+                    "in": {k: int(v) for k, v in env.items()},
+                    "f": int(f),
+                    "nnfF": int(nnf_f),
+                    "nnfNotF": int(nnf_fc),
+                }
+            )
+        checks = {
+            "checkedBy": "truthTable",
+            "vars": vars_,
+            "nnfEquivalent": all(r["f"] == r["nnfF"] for r in rows),
+            "nnfComplementEquivalent": all(r["nnfNotF"] == (1 - r["f"]) for r in rows),
+        }
+    else:
+        import random
+
+        samples = 256
+        ok_nnf = True
+        ok_comp = True
+        for _ in range(samples):
+            env = {k: bool(random.getrandbits(1)) for k in vars_}
+            f = _eval(parsed, env)
+            ok_nnf = ok_nnf and (_eval(nnf_expr, env) == f)
+            ok_comp = ok_comp and (_eval(nnf_comp, env) == (not f))
+        rows = []
+        checks = {
+            "checkedBy": "random",
+            "samples": samples,
+            "vars": vars_,
+            "nnfEquivalent": ok_nnf,
+            "nnfComplementEquivalent": ok_comp,
+        }
+
+    return {
+        "input": {
+            "expression": expression,
+            "style": {
+                "not": style.not_op,
+                "and": "" if style.implicit_and else style.and_op,
+                "or": style.or_op,
+            },
+        },
+        "steps": {
+            "parse": {"expr": expr_to_str(parsed, style)},
+            "simplify": {"expr": expr_to_str(simplified, style)},
+            "complement": {"expr": expr_to_str(comp, style)},
+            "nnf": {"expr": expr_to_str(nnf_expr, style)},
+            "nnfComplement": {"expr": expr_to_str(nnf_comp, style)},
+        },
+        "checks": checks,
+        "truthTable": rows,
+    }
+
+
+def _collect_vars(expr: Expr) -> Iterable[str]:
+    if isinstance(expr, Var):
+        yield expr.name
+    elif isinstance(expr, Const):
+        return
+    elif isinstance(expr, Not):
+        yield from _collect_vars(expr.child)
+    elif isinstance(expr, (And, Or)):
+        for c in expr.children:
+            yield from _collect_vars(c)
+
+
+def _eval(expr: Expr, env: Dict[str, bool]) -> bool:
+    if isinstance(expr, Var):
+        try:
+            return env[expr.name]
+        except KeyError:
+            raise SynthesisError(f"Missing variable assignment: {expr.name}")
+    if isinstance(expr, Const):
+        return expr.value
+    if isinstance(expr, Not):
+        return not _eval(expr.child, env)
+    if isinstance(expr, And):
+        out = True
+        for c in expr.children:
+            out = out and _eval(c, env)
+        return out
+    if isinstance(expr, Or):
+        out = False
+        for c in expr.children:
+            out = out or _eval(c, env)
+        return out
+    raise AssertionError(f"Unknown Expr: {type(expr)}")
 
 
 # ---- Optional FastAPI binding ----
@@ -546,6 +712,13 @@ def _try_build_router():
         except SynthesisError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
+    @router.post("/debug/nnf")
+    def debug_nnf_route(payload: SynthesizeRequest) -> Dict[str, Any]:
+        try:
+            return inspect_complement_nnf(payload.expr)
+        except SynthesisError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
     return router
 
 
@@ -562,5 +735,6 @@ __all__ = [
     "build_network",
     "export_network_json",
     "synthesize",
+    "inspect_complement_nnf",
     "router",
 ]
