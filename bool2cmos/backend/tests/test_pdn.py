@@ -1,9 +1,9 @@
 import unittest
-from ..parser.ast import Var, And, Or, Not
-from ..synthesis.pdn_builder import build_pdn
-from ..synthesis.pun_builder import build_pun
-from ..synthesis.inverter import get_required_inverters, count_inverter_transistors
-from ..graph.network import NodeType, MosType
+from bool2cmos.backend.parser.ast import Var, And, Or, Not
+from bool2cmos.backend.synthesis.pdn_builder import build_pdn
+from bool2cmos.backend.synthesis.pun_builder import build_pun
+from bool2cmos.backend.synthesis.inverter import get_required_inverters, count_inverter_transistors
+from bool2cmos.backend.graph.network import NodeType, MosType
 
 class TestSynthesis(unittest.TestCase):
     def setUp(self):
