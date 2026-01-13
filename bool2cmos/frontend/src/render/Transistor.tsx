@@ -14,20 +14,18 @@ export const Transistor: React.FC<TransistorProps> = ({ layout }) => {
   const cy = height / 2;
   
   // Dimensions
-  const channelLength = 20;
-  const gateOffset = 8;
+  const channelLength = 24;
+  const gateOffset = 12;
   const terminalLen = (height - channelLength) / 2;
+  const plateWidth = 3;
 
   return (
     <g className={`transistor ${deviceType}`}>
       {/* Top Terminal (Drain/Source) */}
-      <line x1={cx} y1={0} x2={cx} y2={terminalLen} stroke="black" strokeWidth={2} />
+      <line x1={cx} y1={0} x2={cx} y2={terminalLen} strokeWidth={2} />
       
       {/* Bottom Terminal (Source/Drain) */}
-      <line x1={cx} y1={height} x2={cx} y2={height - terminalLen} stroke="black" strokeWidth={2} />
-      
-      {/* Channel (simplified) */}
-      {/* For simplicity, we draw the channel line and the gate plate */}
+      <line x1={cx} y1={height} x2={cx} y2={height - terminalLen} strokeWidth={2} />
       
       {/* Gate Plate (Vertical) */}
       <line 
@@ -35,17 +33,15 @@ export const Transistor: React.FC<TransistorProps> = ({ layout }) => {
         y1={terminalLen} 
         x2={cx - gateOffset} 
         y2={height - terminalLen} 
-        stroke="black" 
-        strokeWidth={2} 
+        strokeWidth={plateWidth} 
       />
 
-      {/* Channel Line (Vertical) - Dotted or solid based on preference, using solid for now */}
+      {/* Channel Line (Vertical) */}
       <line 
         x1={cx} 
         y1={terminalLen} 
         x2={cx} 
         y2={height - terminalLen} 
-        stroke="black" 
         strokeWidth={2} 
       />
 
@@ -55,7 +51,6 @@ export const Transistor: React.FC<TransistorProps> = ({ layout }) => {
         y1={cy} 
         x2={0} 
         y2={cy} 
-        stroke="black" 
         strokeWidth={2} 
       />
 
@@ -64,20 +59,18 @@ export const Transistor: React.FC<TransistorProps> = ({ layout }) => {
         <circle 
           cx={cx - gateOffset - 5} 
           cy={cy} 
-          r={3} 
+          r={4} 
           fill="white" 
-          stroke="black" 
           strokeWidth={2} 
         />
       )}
 
       {/* Label */}
       <text 
-        x={0} 
+        x={(cx - gateOffset) / 2} 
         y={cy - 10} 
         className="text-xs font-bold" 
-        fill="black"
-        style={{ fontSize: '12px' }}
+        style={{ fontSize: '14px', textAnchor: 'middle' }}
       >
         {name}
       </text>

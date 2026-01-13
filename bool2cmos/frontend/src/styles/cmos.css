@@ -147,3 +147,29 @@ svg {
   height: auto;
   max-height: 520px;
 }
+
+/* Transistor Styles */
+.transistor line,
+.transistor circle {
+  transition: stroke 0.3s ease;
+}
+
+.transistor.nmos line,
+.transistor.nmos circle {
+  stroke: #2563eb; /* Blue-600 */
+}
+
+.transistor.nmos text {
+  fill: #2563eb;
+  font-weight: 700;
+}
+
+.transistor.pmos line,
+.transistor.pmos circle {
+  stroke: #dc2626; /* Red-600 */
+}
+
+.transistor.pmos text {
+  fill: #dc2626;
+  font-weight: 700;
+}
