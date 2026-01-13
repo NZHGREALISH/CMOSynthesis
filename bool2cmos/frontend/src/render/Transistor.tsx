@@ -21,7 +21,7 @@ export const Transistor: React.FC<TransistorProps> = ({ layout }) => {
   // Layout offsets
   // "Protruding" style: Trunk -> (stubs) -> Channel -> Gate
   // Moving channel to the Left of trunk to keep gate on the far Left (input side)
-  const channelOffset = 16; 
+  const channelOffset = 12; 
   const gateGap = 8;
   
   const trunkX = cx;
@@ -84,10 +84,10 @@ export const Transistor: React.FC<TransistorProps> = ({ layout }) => {
 
       {/* Label */}
       <text 
-        x={channelX - 2} // Align slightly left of channel? Or centered on channel?
-        y={cy - 10} 
+        x={0} 
+        y={cy - 6} 
         className="text-xs font-bold" 
-        style={{ fontSize: '14px', textAnchor: 'middle' }}
+        style={{ fontSize: '12px', textAnchor: 'start' }}
       >
         {name}
       </text>
