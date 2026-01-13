@@ -84,10 +84,10 @@ export const Transistor: React.FC<TransistorProps> = ({ layout }) => {
 
       {/* Label */}
       <text 
-        x={0} 
+        x={-4} 
         y={cy - 6} 
         className="text-xs font-bold" 
-        style={{ fontSize: '12px', textAnchor: 'start' }}
+        style={{ fontSize: '12px', textAnchor: 'end' }}
       >
         {name}
       </text>
