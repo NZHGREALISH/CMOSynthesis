@@ -16,11 +16,15 @@ export function StepExplanation({
   const rows: Array<[string, string]> = [
     ['Parse', steps.parse.expr],
     ['Simplify', steps.simplify.expr],
+    
+    // PUN Path (from Simplify)
+    ['NNF (PUN)', steps.nnf.expr],
+    ['Factor (PUN)', steps.factor.expr],
+
+    // PDN Path (from Complement)
     ['Complement', steps.complement.expr],
-    ['NNF', steps.nnf.expr],
-    ...(steps.nnfComplement ? ([['NNF (Complement)', steps.nnfComplement.expr]] as Array<[string, string]>) : []),
-    ['Factor', steps.factor.expr],
-    ...(steps.factorComplement ? ([['Factor (Complement)', steps.factorComplement.expr]] as Array<[string, string]>) : []),
+    ...(steps.nnfComplement ? ([['NNF (PDN)', steps.nnfComplement.expr]] as Array<[string, string]>) : []),
+    ...(steps.factorComplement ? ([['Factor (PDN)', steps.factorComplement.expr]] as Array<[string, string]>) : []),
   ];
 
   return (
