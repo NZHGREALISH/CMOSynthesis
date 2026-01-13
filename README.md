@@ -1,20 +1,23 @@
 # CMOSynthesis
 
-CMOSynthesis is a tool for synthesizing static CMOS transistor networks (Pull-Up and Pull-Down networks) from boolean logic expressions. It parses boolean formulas, performs logic simplification, and generates the corresponding transistor-level implementation.
+CMOSynthesis is a tool for synthesizing static CMOS transistor networks (Pull-Up and Pull-Down networks) from boolean logic expressions. It parses boolean formulas, performs logic simplification (including NNF + factoring), and generates the corresponding transistor-level implementation plus JSON output for visualization.
 
 ## Features
 
-- **Boolean Expression Parsing**: Supports standard boolean operators (AND `&`, OR `|`, NOT `!`).
+- **Boolean Expression Parsing**: Supports standard operators and aliases (AND `&`/`*`/implicit/`AND`, OR `|`/`+`/`OR`, NOT `!`/`~`/`NOT`).
+- **Constants & Variables**: Supports constants `0`/`1` and identifiers with letters, digits, and underscores.
 - **Logic Simplification**: Applies algebraic rules including:
   - Constant folding
   - Identity and Annihilator laws
   - Complement logic
   - Factoring
+- **NNF + Complement NNF**: Produces negation-normal form for the function and its complement.
 - **CMOS Network Synthesis**:
   - Generates Pull-Down Networks (PDN) using NMOS transistors.
   - Generates Pull-Up Networks (PUN) using PMOS transistors.
   - Calculates transistor counts (including necessary inverters for inputs).
 - **Visualization Data**: Exports network structure in JSON format suitable for graph visualization.
+- **Debugging Utilities**: Includes a debug endpoint to compare NNF/complement NNF against truth tables or randomized checks.
 
 ## Project Structure
 
@@ -24,18 +27,28 @@ The project is organized into a backend logic engine and a frontend visualizatio
 CMOSynthesis/
 ├── bool2cmos/
 │   ├── backend/
-│   │   ├── api/
-│   │   │   └── synthesize.py    # Main synthesis pipeline and API entry point
+│   │   ├── api/                 # Synthesis pipeline and optional FastAPI router
+│   │   ├── app.py               # FastAPI application
+│   │   ├── constraints/         # Optional guardrails (e.g., transistor limit checks)
+│   │   ├── graph/               # Network graph model + JSON export helpers
 │   │   ├── logic/               # Logic transformation rules
 │   │   ├── parser/              # Expression parsing and AST definitions
 │   │   ├── synthesis/           # PDN/PUN construction algorithms
 │   │   └── tests/               # Unit tests
-│   └── frontend/                # React-based web interface (Work in Progress)
+│   └── frontend/                # React-based web interface
 ```
 
 ## Backend Usage
 
 The core logic is implemented in Python. The primary entry point for synthesis is `bool2cmos.backend.api.synthesize`.
+
+### Expression syntax
+
+- **NOT**: `!A`, `~A`, or `NOT A`
+- **AND**: `A&B`, `A*B`, `A AND B`, or implicit `AB`/`A(B+C)`/`A!B`
+- **OR**: `A|B`, `A+B`, or `A OR B`
+- **Constants**: `0`, `1`
+- **Identifiers**: Alphanumeric/underscore tokens (`A`, `N1`, `foo_bar`). Pure alphabetic tokens longer than one character (e.g. `AB`) are treated as shorthand `A AND B`, so use digits/underscores if you need multi-character variable names (e.g. `A1` or `A_B`).
 
 ### Dependencies
 
@@ -93,15 +106,16 @@ The `synthesize` function returns a dictionary containing details about each ste
 - `parse`: The parsed expression.
 - `simplify`: The simplified version of the expression.
 - `nnf`: Negation Normal Form.
+- `nnfComplement`: Negation Normal Form of the complement.
+- `factor` / `factorComplement`: Factored NNF forms used for network synthesis.
 - `pdn` / `pun`: The resulting transistor networks (Series/Parallel structures).
 - `count`: Transistor usage statistics.
 
+### Debug endpoint
+
+`POST /debug/nnf` (or `/debug/complement-nnf`) returns NNF/complement-NNF inspections and, when the variable count is small, a full truth-table check. For larger expressions, it falls back to randomized sampling.
+
 ## Status
 
-- **Backend**: Functional core logic with dual implementations (monolithic and modular).
-- **Frontend**: Structure initialized, currently under development.
-
-## Notes / Caveats
-
-- `bool2cmos/docs/*` are currently empty placeholders.
-- The backend currently has two parallel implementations (`bool2cmos/backend/api/synthesize.py` vs `bool2cmos/backend/{parser,logic,synthesis,...}`) and the JSON schema is not unified; the frontend uses the `api/synthesize.py` schema (and maps it into its internal network types).
+- **Backend**: Functional core logic with API endpoints for synthesis and NNF inspection.
+- **Frontend**: React-based UI for visualization and experimentation.
