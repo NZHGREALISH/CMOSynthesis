@@ -4,5 +4,5 @@ import { NetworkNode } from '../types/network';
 import { NetworkView } from './NetworkView';
 
 export function PDNView({ network }: { network: NetworkNode }) {
-  return <NetworkView title="PDN" network={network} />;
+  return <NetworkView title="PDN" network={network} topLabel="OUT" bottomLabel="GND" />;
 }
